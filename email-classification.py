@@ -76,12 +76,11 @@ def create_email_storing_folder_if_not_exists(folder_name,folder_path):
         create a folder to store email from a specific address
         folder_name = @From field in eml-header
     '''
-    absolute_path_to_folder = folder_path + os.sep + folder_name
-    if os.path.isdir(absolute_path_to_folder):
+    if os.path.isdir(os.path.join(folder_path,folder_name)):
         print("folder %s already exists"%folder_name)
         #check for duplicated file and copy
     else:
-        os.mkdir(absolute_path_to_folder)
+        os.mkdir(os.path.join(folder_path,folder_name))
         print("newly created folder %s "%folder_name)
 
 
@@ -90,27 +89,26 @@ def copy_email_to_storing_folder(src,dst,email_file_name):
         if email doestn't exist in storing folder, copy it
     '''
     #check if email exists
-    if not os.path.isfile(open(dst + os.sep + email_file_name,"r")):
-        shutil.copy2(src,dst + os.sep + email_file_name)
+    if not os.path.isfile(os.path.join(dst,email_file_name)):
+        shutil.copy2(os.path.join(src,email_file_name),os.path.join(dst,email_file_name))
         print("successfully copied new email file")
     else:
         print("email file: %s already exist "%(email_file_name))
 
 
-def move_copied_email_to_treasure(src,treasure_name,dst = None):
+def move_copied_email_to_treasure(src,treasure_name,email_file_name,dst = None):
     '''
         move copied email to treasure, if exists, delete it
     '''
+    create_email_storing_folder_if_not_exists(treasure_name,src)
     if dst is not None:
         if not os.path.isfile(dst + os.sep + treasure_name):
-            shutil.move(src + os.sep + treasure_name, dst + os.sep + treasure_name)
-        else:
-            os.remove(src + os.sep + treasure_name)
+            shutil.move(os.path.join(src,email_file_name),os.path.join(dst,treasure_name))
     else:
-        if not os.path.isfile(open(dst + os.sep + treasure_name,"r")):
-            shutil.move(src + os.sep + treasure_name, dst + os.sep + treasure_name)
-        else:
-            os.remove(src + os.sep + treasure_name)
+        if not os.path.isdir(os.path.join(src+ os.sep + treasure_name)):
+            shutil.move(os.path.join(src,email_file_name),os.path.join(src,treasure_name))
+
+
 
 
 def main(path):
@@ -119,16 +117,19 @@ def main(path):
     eml_key_to_search = "From"
 
     print("current emails in %s:"%path)
-    email_list = get_list_of_incoming_emails(current_path)
-    print(email_list)
+    try:
+        email_list = get_list_of_incoming_emails(current_path)
+        print(email_list)
 
-    for each_mail in email_list:
-        eml_header = get_eml_header(current_path + os.sep + each_mail)
-        from_addr = get_email_from_obfuscated_string(get_value_by_key(eml_header,eml_key_to_search))
-        create_email_storing_folder_if_not_exists(from_addr,current_path)
-        copy_email_to_storing_folder(current_path, current_path + os.sep + from_addr,each_mail )
-        move_copied_email_to_treasure(current_path,current_path + os.sep + treasure_name)
+        for each_mail in email_list:
+            eml_header = get_eml_header(current_path + os.sep + each_mail)
+            from_addr = get_email_from_obfuscated_string(get_value_by_key(eml_header,eml_key_to_search))
+            create_email_storing_folder_if_not_exists(from_addr,current_path)
+            copy_email_to_storing_folder(current_path, os.path.join(current_path,from_addr), each_mail )
+            move_copied_email_to_treasure(current_path,os.path.join(current_path,treasure_name),each_mail)
 
+    except TypeError as err:
+        print("empty email list")
 
 
 
