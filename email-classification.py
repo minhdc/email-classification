@@ -20,6 +20,9 @@ __date__ = 111111
 
 
 def get_list_of_incoming_emails(current_eml_path):
+    '''
+        return a list of email in a specified folder path
+    '''
     email_list = []
     for each_element in os.listdir():
         if each_element.endswith(".eml"):
@@ -90,8 +93,11 @@ def copy_email_to_storing_folder(src,dst,email_file_name):
     '''
     #check if email exists
     if not os.path.isfile(os.path.join(dst,email_file_name)):
-        shutil.copy2(os.path.join(src,email_file_name),os.path.join(dst,email_file_name))
-        print("successfully copied new email file")
+        try:
+            shutil.copy2(os.path.join(src,email_file_name),os.path.join(dst,email_file_name))
+            print("successfully copied new email file")
+        except shutil.Error as e:
+            print("duplicated file ",email_file_name)
     else:
         print("email file: %s already exist "%(email_file_name))
 
@@ -103,11 +109,42 @@ def move_copied_email_to_treasure(src,treasure_name,email_file_name,dst = None):
     create_email_storing_folder_if_not_exists(treasure_name,src)
     if dst is not None:
         if not os.path.isfile(dst + os.sep + treasure_name):
-            shutil.move(os.path.join(src,email_file_name),os.path.join(dst,treasure_name))
+            try:
+                shutil.move(os.path.join(src,email_file_name),os.path.join(dst,treasure_name))
+            except shutil.Error as e:
+                print("duplicated file~!",email_file_name   )
     else:
         if not os.path.isdir(os.path.join(src+ os.sep + treasure_name)):
-            shutil.move(os.path.join(src,email_file_name),os.path.join(src,treasure_name))
+            try:
+                shutil.move(os.path.join(src,email_file_name),os.path.join(src,treasure_name))
+            except shutil.Error as e:
+                print("duplicated file~!",email_file_name)
 
+def get_email_object(path_to_eml_file,file_name):
+    return message_from_file(open(path_to_eml_file+os.sep+file_name,"r",encoding="ISO-8859-1"))
+
+
+def extract_from_address_in_payload(email_object):
+    '''
+        extract value of 'from' address in the payload of provided email_obj
+    '''
+    start_point = 0
+    stop_point = 0
+    email_payload_as_string = email_object['From']
+
+    #process the value of 'From' key in header
+    print("raw value:",email_payload_as_string)
+    try:
+        start_point = email_payload_as_string.index('<')
+        stop_point = email_payload_as_string.index('>')
+    except ValueError as verr:
+        return email_payload_as_string
+
+    extracted_from_address = []
+    for i in range(start_point+1,stop_point):
+        extracted_from_address.append(email_payload_as_string[i])
+
+    return ''.join(extracted_from_address)
 
 
 
@@ -119,15 +156,23 @@ def main(path):
     print("current emails in %s:"%path)
     try:
         email_list = get_list_of_incoming_emails(current_path)
-        print(email_list)
+        email_quantity = 0
+        #print(email_list)
 
         for each_mail in email_list:
-            eml_header = get_eml_header(current_path + os.sep + each_mail)
-            from_addr = get_email_from_obfuscated_string(get_value_by_key(eml_header,eml_key_to_search))
+            #test the header
+            #eml_header = get_eml_header(current_path + os.sep + each_mail)
+            #print_full_header(eml_header)
+            #print("====================")
+            #from_addr = get_email_from_obfuscated_string(get_value_by_key(eml_header,eml_key_to_search))
+
+            #test mail name
+            from_addr = extract_from_address_in_payload(get_email_object(current_path,each_mail))
+            #email_quantity += 1
             create_email_storing_folder_if_not_exists(from_addr,current_path)
             copy_email_to_storing_folder(current_path, os.path.join(current_path,from_addr), each_mail )
             move_copied_email_to_treasure(current_path,os.path.join(current_path,treasure_name),each_mail)
-
+        print(email_quantity)
     except TypeError as err:
         print("empty email list")
 
